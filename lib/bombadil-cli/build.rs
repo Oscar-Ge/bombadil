@@ -5,12 +5,17 @@ use std::process::Stdio;
 fn main() {
     let dist_directory = Path::new("../../target/inspect");
 
+    println!("cargo:rerun-if-env-changed=BOMBADIL_SKIP_INSPECT");
     println!("cargo:rerun-if-changed=../bombadil-inspect/src");
     println!("cargo:rerun-if-changed=../bombadil-inspect/Cargo.toml");
     println!("cargo:rerun-if-changed=../bombadil-inspect/index.html");
     println!("cargo:rerun-if-changed=../bombadil-inspect/Trunk.toml");
 
-    build_inspect(dist_directory);
+    if std::env::var_os("BOMBADIL_SKIP_INSPECT").is_some() {
+        ensure_placeholder(dist_directory);
+    } else {
+        build_inspect(dist_directory);
+    }
 }
 
 fn build_inspect(dist_directory: &Path) {
