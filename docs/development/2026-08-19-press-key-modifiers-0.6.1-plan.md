@@ -1,6 +1,6 @@
 # Bombadil 0.6.1 PressKey Modifiers Plan
 
-Last updated: 2026-08-19 (America/Denver)
+Last updated: 2026-08-20 (America/Denver)
 
 Repository: `/uufs/chpc.utah.edu/common/home/u6076945/bombadil`
 
@@ -13,9 +13,8 @@ complete. Read-only review found no Shift+Tab blocker and its two hardening
 suggestions have been applied: modified text-producing keys fail explicitly,
 and each CDP modifier bit has an independent test. Final Granite job `1831912`
 passed the relevant build, Clippy, schema tests, browser tests, and real Chrome
-Shift+Tab test. The working tree passes rustfmt after applying the one formatting
-change reported by the job. The branch remains intentionally uncommitted and
-unpushed because committing/pushing was not requested.**
+Shift+Tab test. LTL-UI now pins the tested fork commit and the SHA256 of the
+binary used by its Shift+Tab campaign instead of accepting a PATH fallback.**
 
 ## Decision
 
@@ -88,8 +87,8 @@ as Shift+A and Ctrl+K remain outside this change.
 | 10. Select a CHPC compute partition | Complete | Portal selected Granite owner CPU `coe-class-grn`, QOS `coe-class-grn`, account `jiangy`; VAST scratch is healthy at 59% overall use. |
 | 11. Run Rust build and clippy | Complete | Final job `1831912`: relevant workspace build and Clippy `--all-targets --fix --allow-dirty -- -D warnings` passed under Rust 1.92; pre/post-Clippy patches are byte-identical. The job reported one rustfmt-only compaction, applied afterward; the working tree now passes `cargo fmt --all -- --check`. |
 | 12. Run the Shift+Tab Chromium integration test | Complete | Final job `1831912` ran Chrome 145 on `grn053`; one test passed in 1.61 s and observed the required trusted events and backward focus movement. |
-| 13. Review and commit the Bombadil change | Review complete; commit not requested | Review found no Shift+Tab blocker. It prompted explicit rejection of unsupported modified printable keys and one-hot bitmask tests. Branch remains uncommitted/unpushed. |
-| 14. Integrate into LTL-UI | Not started | Separate branch/PR after the Bombadil transport is verified. |
+| 13. Review and commit the Bombadil change | Complete | Review found no Shift+Tab blocker. It prompted explicit rejection of unsupported modified printable keys and one-hot bitmask tests. Transport commit: `724a5a8`; headless CLI build support: `d35ecee`. |
+| 14. Integrate into LTL-UI | In progress | `feature/shift-tab-action-space-0.6.1` pins this fork and adds reverse-browser qualification. |
 
 ## Discovered compute environment
 
@@ -219,7 +218,7 @@ branch must:
 
 ## Release boundary
 
-After all checks pass, package the fork with a distinguishable version such as
-`0.6.1-ltl.1` and pin LTL-UI to the resulting immutable artifact. Versioning,
-publishing, committing, pushing, and LTL-UI dependency updates are not part of
-the current completed work.
+The current integration pins the immutable binary SHA256 and source commits
+without publishing a package. A later release can package the fork with a
+distinguishable version such as `0.6.1-ltl.1`; that packaging step remains
+separate from the modifier transport and browser qualification.
