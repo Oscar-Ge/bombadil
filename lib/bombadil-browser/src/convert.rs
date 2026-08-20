@@ -1,4 +1,4 @@
-use crate::browser::actions::BrowserAction;
+use crate::browser::actions::{BrowserAction, KeyModifiers};
 use crate::browser::state::Resources;
 use crate::geometry::Point;
 pub use bombadil::specification::convert::{
@@ -28,6 +28,28 @@ impl ToSchema<bombadil_schema::Resources> for Resources {
             thread_time: self.thread_time,
             task_duration: self.task_duration,
             script_duration: self.script_duration,
+        }
+    }
+}
+
+impl ToSchema<bombadil_schema::KeyModifiers> for KeyModifiers {
+    fn to_schema(&self) -> bombadil_schema::KeyModifiers {
+        bombadil_schema::KeyModifiers {
+            shift: self.shift,
+            alt: self.alt,
+            ctrl: self.ctrl,
+            meta: self.meta,
+        }
+    }
+}
+
+impl ToInternal<KeyModifiers> for bombadil_schema::KeyModifiers {
+    fn to_internal(&self) -> KeyModifiers {
+        KeyModifiers {
+            shift: self.shift,
+            alt: self.alt,
+            ctrl: self.ctrl,
+            meta: self.meta,
         }
     }
 }
@@ -63,8 +85,11 @@ impl ToSchema<bombadil_schema::BrowserAction> for BrowserAction {
                     delay_millis: *delay_millis,
                 }
             }
-            BrowserAction::PressKey { code } => {
-                bombadil_schema::BrowserAction::PressKey { code: *code }
+            BrowserAction::PressKey { code, modifiers } => {
+                bombadil_schema::BrowserAction::PressKey {
+                    code: *code,
+                    modifiers: modifiers.to_schema(),
+                }
             }
             BrowserAction::ScrollUp { origin, distance } => {
                 bombadil_schema::BrowserAction::ScrollUp {
@@ -138,8 +163,11 @@ impl ToInternal<BrowserAction> for bombadil_schema::BrowserAction {
                     delay_millis: *delay_millis,
                 }
             }
-            bombadil_schema::BrowserAction::PressKey { code } => {
-                BrowserAction::PressKey { code: *code }
+            bombadil_schema::BrowserAction::PressKey { code, modifiers } => {
+                BrowserAction::PressKey {
+                    code: *code,
+                    modifiers: modifiers.to_internal(),
+                }
             }
             bombadil_schema::BrowserAction::ScrollUp { origin, distance } => {
                 BrowserAction::ScrollUp {
@@ -189,5 +217,36 @@ impl ToInternal<Point> for bombadil_schema::Point {
             x: self.x,
             y: self.y,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn press_key_modifiers_round_trip_through_trace_schema() {
+        let action = BrowserAction::PressKey {
+            code: 9,
+            modifiers: KeyModifiers {
+                shift: true,
+                ..KeyModifiers::default()
+            },
+        };
+
+        let round_trip: BrowserAction = action.to_schema().to_internal();
+
+        assert!(matches!(
+            round_trip,
+            BrowserAction::PressKey {
+                code: 9,
+                modifiers: KeyModifiers {
+                    shift: true,
+                    alt: false,
+                    ctrl: false,
+                    meta: false,
+                },
+            }
+        ));
     }
 }

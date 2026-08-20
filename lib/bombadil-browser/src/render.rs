@@ -67,12 +67,23 @@ pub fn format_action(action: &BrowserAction) -> String {
                 styled::maybe_blue(format!("{delay_millis}ms"))
             )
         }
-        BrowserAction::PressKey { code } => {
+        BrowserAction::PressKey { code, modifiers } => {
             let key = key_name(*code).unwrap_or("Unknown");
+            let modifiers = [
+                (modifiers.ctrl, "Ctrl"),
+                (modifiers.alt, "Alt"),
+                (modifiers.shift, "Shift"),
+                (modifiers.meta, "Meta"),
+            ]
+            .into_iter()
+            .filter_map(|(active, name)| active.then_some(name))
+            .chain(std::iter::once(key))
+            .collect::<Vec<_>>()
+            .join("+");
             format!(
                 "{} {} (code: {})",
                 styled::maybe_bold("Pressing".to_string()),
-                key,
+                modifiers,
                 styled::maybe_blue(format!("{code}"))
             )
         }

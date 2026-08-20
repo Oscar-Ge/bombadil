@@ -11,6 +11,17 @@ export type Point = {
   y: number;
 };
 
+/**
+ * Modifier state for non-text-producing keys such as Tab. Modified printable
+ * keys are rejected until their Char-event semantics are implemented.
+ */
+export type KeyModifiers = {
+  shift?: boolean;
+  alt?: boolean;
+  ctrl?: boolean;
+  meta?: boolean;
+};
+
 export type Action =
   | "Back"
   | "Forward"
@@ -26,7 +37,7 @@ export type Action =
     };
   }
   | { TypeText: { text: string; delayMillis: number } }
-  | { PressKey: { code: number } }
+  | { PressKey: { code: number; modifiers?: KeyModifiers } }
   | { ScrollUp: { origin: Point; distance: number } }
   | { ScrollDown: { origin: Point; distance: number } }
   | { SetFileInputFiles: { selector: string; files: string[] } }

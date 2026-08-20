@@ -104,6 +104,23 @@ pub struct Resources {
     pub script_duration: f64,
 }
 
+#[derive(
+    Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq,
+)]
+#[serde(default)]
+pub struct KeyModifiers {
+    pub shift: bool,
+    pub alt: bool,
+    pub ctrl: bool,
+    pub meta: bool,
+}
+
+impl KeyModifiers {
+    fn is_empty(&self) -> bool {
+        !self.shift && !self.alt && !self.ctrl && !self.meta
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum BrowserAction {
     Back,
@@ -125,6 +142,8 @@ pub enum BrowserAction {
     },
     PressKey {
         code: u8,
+        #[serde(default, skip_serializing_if = "KeyModifiers::is_empty")]
+        modifiers: KeyModifiers,
     },
     ScrollUp {
         origin: Point,
@@ -457,4 +476,83 @@ pub enum Formula {
     Next(Box<Formula>),
     Always(Box<Formula>, Option<Duration>),
     Eventually(Box<Formula>, Option<Duration>),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{BrowserAction, KeyModifiers};
+
+    #[test]
+    fn old_press_key_json_defaults_to_no_modifiers() {
+        let action: BrowserAction =
+            serde_json::from_str(r#"{"PressKey":{"code":9}}"#).unwrap();
+
+        assert_eq!(
+            action,
+            BrowserAction::PressKey {
+                code: 9,
+                modifiers: KeyModifiers::default(),
+            }
+        );
+    }
+
+    #[test]
+    fn empty_modifiers_preserve_old_press_key_json_identity() {
+        let action = BrowserAction::PressKey {
+            code: 9,
+            modifiers: KeyModifiers::default(),
+        };
+
+        assert_eq!(
+            serde_json::to_string(&action).unwrap(),
+            r#"{"PressKey":{"code":9}}"#
+        );
+    }
+
+    #[test]
+    fn partial_press_key_modifiers_default_unspecified_flags() {
+        let action: BrowserAction = serde_json::from_str(
+            r#"{"PressKey":{"code":9,"modifiers":{"shift":true}}}"#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            action,
+            BrowserAction::PressKey {
+                code: 9,
+                modifiers: KeyModifiers {
+                    shift: true,
+                    alt: false,
+                    ctrl: false,
+                    meta: false,
+                },
+            }
+        );
+    }
+
+    #[test]
+    fn active_modifiers_are_serialized_in_press_key_json() {
+        let action = BrowserAction::PressKey {
+            code: 9,
+            modifiers: KeyModifiers {
+                shift: true,
+                ..KeyModifiers::default()
+            },
+        };
+
+        assert_eq!(
+            serde_json::to_value(&action).unwrap(),
+            serde_json::json!({
+                "PressKey": {
+                    "code": 9,
+                    "modifiers": {
+                        "shift": true,
+                        "alt": false,
+                        "ctrl": false,
+                        "meta": false,
+                    },
+                },
+            })
+        );
+    }
 }

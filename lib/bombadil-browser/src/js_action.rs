@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::browser::actions::BrowserAction;
+use crate::browser::actions::{BrowserAction, KeyModifiers};
 use crate::geometry::Point;
 
 /// TypeScript-friendly action representation with camelCase and f64 for numbers.
@@ -30,6 +30,8 @@ pub enum JsAction {
     #[serde(rename_all = "camelCase")]
     PressKey {
         code: f64,
+        #[serde(default)]
+        modifiers: KeyModifiers,
     },
     #[serde(rename_all = "camelCase")]
     ScrollUp {
@@ -116,7 +118,7 @@ impl JsAction {
                     delay_millis: delay_millis as u64,
                 }
             }
-            JsAction::PressKey { code } => {
+            JsAction::PressKey { code, modifiers } => {
                 if !code.is_finite()
                     || !(0.0..=255.0).contains(&code)
                     || code.fract() != 0.0
@@ -126,7 +128,9 @@ impl JsAction {
                         code
                     );
                 }
-                BrowserAction::PressKey { code: code as u8 }
+                let code = code as u8;
+                modifiers.validate_for_code(code)?;
+                BrowserAction::PressKey { code, modifiers }
             }
             JsAction::ScrollUp { origin, distance } => {
                 BrowserAction::ScrollUp { origin, distance }
@@ -212,11 +216,48 @@ mod tests {
         let json = r#"{"PressKey": {"code": 13.0}}"#;
         let action: JsAction = serde_json::from_str(json).unwrap();
         match action {
-            JsAction::PressKey { code } => {
+            JsAction::PressKey { code, modifiers } => {
                 assert_eq!(code, 13.0);
+                assert_eq!(modifiers, KeyModifiers::default());
             }
             _ => panic!("expected PressKey"),
         }
+    }
+
+    #[test]
+    fn test_press_key_modifiers_round_trip() {
+        let json = r#"{"PressKey":{"code":9,"modifiers":{"shift":true}}}"#;
+        let action: JsAction = serde_json::from_str(json).unwrap();
+        let browser_action = action.into_browser_action().unwrap();
+
+        assert!(matches!(
+            browser_action,
+            BrowserAction::PressKey {
+                code: 9,
+                modifiers: KeyModifiers {
+                    shift: true,
+                    alt: false,
+                    ctrl: false,
+                    meta: false,
+                },
+            }
+        ));
+    }
+
+    #[test]
+    fn test_press_key_modifiers_reject_text_producing_keys() {
+        let action = JsAction::PressKey {
+            code: 65.0,
+            modifiers: KeyModifiers {
+                shift: true,
+                ..KeyModifiers::default()
+            },
+        };
+
+        assert_eq!(
+            action.into_browser_action().unwrap_err().to_string(),
+            "modifiers for text-producing key code 65 are not supported"
+        );
     }
 
     #[test]
@@ -236,7 +277,10 @@ mod tests {
 
     #[test]
     fn test_to_browser_action_validates_code_range() {
-        let js_action = JsAction::PressKey { code: 256.0 };
+        let js_action = JsAction::PressKey {
+            code: 256.0,
+            modifiers: KeyModifiers::default(),
+        };
         let result = js_action.into_browser_action();
         assert!(result.is_err());
         assert!(
@@ -246,7 +290,10 @@ mod tests {
                 .contains("between 0 and 255")
         );
 
-        let js_action = JsAction::PressKey { code: 13.5 };
+        let js_action = JsAction::PressKey {
+            code: 13.5,
+            modifiers: KeyModifiers::default(),
+        };
         let result = js_action.into_browser_action();
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("integer"));

@@ -17,6 +17,40 @@ pub struct ActionOptions {
     pub device_scale_factor: f64,
 }
 
+#[derive(
+    Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq,
+)]
+#[serde(default)]
+pub struct KeyModifiers {
+    pub shift: bool,
+    pub alt: bool,
+    pub ctrl: bool,
+    pub meta: bool,
+}
+
+impl KeyModifiers {
+    fn is_empty(&self) -> bool {
+        !self.shift && !self.alt && !self.ctrl && !self.meta
+    }
+
+    pub(crate) fn validate_for_code(self, code: u8) -> Result<()> {
+        if !self.is_empty() && key_text(code).is_some() {
+            bail!(
+                "modifiers for text-producing key code {code} are not supported"
+            );
+        }
+        Ok(())
+    }
+
+    fn cdp_mask(self) -> i64 {
+        // Chrome DevTools Protocol: Alt=1, Ctrl=2, Meta=4, Shift=8.
+        (self.alt as i64)
+            | ((self.ctrl as i64) << 1)
+            | ((self.meta as i64) << 2)
+            | ((self.shift as i64) << 3)
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum BrowserAction {
     Back,
@@ -38,6 +72,8 @@ pub enum BrowserAction {
     },
     PressKey {
         code: u8,
+        #[serde(default, skip_serializing_if = "KeyModifiers::is_empty")]
+        modifiers: KeyModifiers,
     },
     ScrollUp {
         origin: Point,
@@ -160,11 +196,13 @@ impl BrowserAction {
                     page.execute(input::InsertTextParams::new(char)).await?;
                 }
             }
-            BrowserAction::PressKey { code } => {
+            BrowserAction::PressKey { code, modifiers } => {
                 let Some(name) = key_name(*code) else {
                     bail!("unknown key with code: {:?}", code);
                 };
+                modifiers.validate_for_code(*code)?;
                 let text = key_text(*code);
+                let modifier_mask = modifiers.cdp_mask();
                 let build_params = |event_type, text: Option<&str>| {
                     let mut builder = input::DispatchKeyEventParams::builder()
                         .r#type(event_type)
@@ -172,6 +210,9 @@ impl BrowserAction {
                         .windows_virtual_key_code(*code as i64)
                         .code(name)
                         .key(name);
+                    if modifier_mask != 0 {
+                        builder = builder.modifiers(modifier_mask);
+                    }
                     if let Some(text) = text {
                         builder = builder.unmodified_text(text).text(text);
                     }
@@ -285,5 +326,70 @@ impl BrowserAction {
             }
         };
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::KeyModifiers;
+
+    #[test]
+    fn key_modifiers_use_the_cdp_modifier_bitmask() {
+        assert_eq!(
+            KeyModifiers {
+                alt: true,
+                ..KeyModifiers::default()
+            }
+            .cdp_mask(),
+            1
+        );
+        assert_eq!(
+            KeyModifiers {
+                ctrl: true,
+                ..KeyModifiers::default()
+            }
+            .cdp_mask(),
+            2
+        );
+        assert_eq!(
+            KeyModifiers {
+                meta: true,
+                ..KeyModifiers::default()
+            }
+            .cdp_mask(),
+            4
+        );
+        assert_eq!(
+            KeyModifiers {
+                shift: true,
+                ..KeyModifiers::default()
+            }
+            .cdp_mask(),
+            8
+        );
+        assert_eq!(
+            KeyModifiers {
+                alt: true,
+                ctrl: true,
+                meta: true,
+                shift: true,
+            }
+            .cdp_mask(),
+            1 | 2 | 4 | 8
+        );
+    }
+
+    #[test]
+    fn modified_text_producing_keys_are_rejected() {
+        let shift = KeyModifiers {
+            shift: true,
+            ..KeyModifiers::default()
+        };
+
+        assert!(shift.validate_for_code(9).is_ok());
+        assert_eq!(
+            shift.validate_for_code(65).unwrap_err().to_string(),
+            "modifiers for text-producing key code 65 are not supported"
+        );
     }
 }

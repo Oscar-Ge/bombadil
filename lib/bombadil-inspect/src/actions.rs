@@ -127,15 +127,32 @@ fn ActionEntry(props: &HistoryEntryProps) -> Html {
                         ("Delay", delay_millis.to_string()),
                     ]),
                 ),
-                bombadil_schema::BrowserAction::PressKey { code, .. } => (
-                    html!(
-                        <>
-                            <span class="action-name">{"Press"}</span>
-                            <span>{key_name(*code).unwrap_or("Unknown")}</span>
-                        </>
-                    ),
-                    Some(vec![("Code", code.to_string())]),
-                ),
+                bombadil_schema::BrowserAction::PressKey {
+                    code,
+                    modifiers,
+                } => {
+                    let key = key_name(*code).unwrap_or("Unknown");
+                    let key_with_modifiers = [
+                        (modifiers.ctrl, "Ctrl"),
+                        (modifiers.alt, "Alt"),
+                        (modifiers.shift, "Shift"),
+                        (modifiers.meta, "Meta"),
+                    ]
+                    .into_iter()
+                    .filter_map(|(active, name)| active.then_some(name))
+                    .chain(std::iter::once(key))
+                    .collect::<Vec<_>>()
+                    .join("+");
+                    (
+                        html!(
+                            <>
+                                <span class="action-name">{"Press"}</span>
+                                <span>{key_with_modifiers}</span>
+                            </>
+                        ),
+                        Some(vec![("Code", code.to_string())]),
+                    )
+                }
                 bombadil_schema::BrowserAction::ScrollUp {
                     origin,
                     distance,
