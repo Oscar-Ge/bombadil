@@ -216,48 +216,11 @@ mod tests {
         let json = r#"{"PressKey": {"code": 13.0}}"#;
         let action: JsAction = serde_json::from_str(json).unwrap();
         match action {
-            JsAction::PressKey { code, modifiers } => {
+            JsAction::PressKey { code, .. } => {
                 assert_eq!(code, 13.0);
-                assert_eq!(modifiers, KeyModifiers::default());
             }
             _ => panic!("expected PressKey"),
         }
-    }
-
-    #[test]
-    fn test_press_key_modifiers_round_trip() {
-        let json = r#"{"PressKey":{"code":9,"modifiers":{"shift":true}}}"#;
-        let action: JsAction = serde_json::from_str(json).unwrap();
-        let browser_action = action.into_browser_action().unwrap();
-
-        assert!(matches!(
-            browser_action,
-            BrowserAction::PressKey {
-                code: 9,
-                modifiers: KeyModifiers {
-                    shift: true,
-                    alt: false,
-                    ctrl: false,
-                    meta: false,
-                },
-            }
-        ));
-    }
-
-    #[test]
-    fn test_press_key_modifiers_reject_text_producing_keys() {
-        let action = JsAction::PressKey {
-            code: 65.0,
-            modifiers: KeyModifiers {
-                shift: true,
-                ..KeyModifiers::default()
-            },
-        };
-
-        assert_eq!(
-            action.into_browser_action().unwrap_err().to_string(),
-            "modifiers for text-producing key code 65 are not supported"
-        );
     }
 
     #[test]

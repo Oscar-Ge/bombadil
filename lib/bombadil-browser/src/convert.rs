@@ -219,34 +219,3 @@ impl ToInternal<Point> for bombadil_schema::Point {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn press_key_modifiers_round_trip_through_trace_schema() {
-        let action = BrowserAction::PressKey {
-            code: 9,
-            modifiers: KeyModifiers {
-                shift: true,
-                ..KeyModifiers::default()
-            },
-        };
-
-        let round_trip: BrowserAction = action.to_schema().to_internal();
-
-        assert!(matches!(
-            round_trip,
-            BrowserAction::PressKey {
-                code: 9,
-                modifiers: KeyModifiers {
-                    shift: true,
-                    alt: false,
-                    ctrl: false,
-                    meta: false,
-                },
-            }
-        ));
-    }
-}

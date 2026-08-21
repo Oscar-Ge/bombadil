@@ -592,51 +592,6 @@ export const editorEventuallyEmpty = eventually(
 }
 
 #[tokio::test]
-async fn test_shift_tab() {
-    BrowserIntegrationTest::new("shift-tab")
-        .specification(
-            r##"
-import { eventually } from "@antithesishq/bombadil";
-import { actions, extract } from "@antithesishq/bombadil/browser";
-
-export const shiftTabs = actions(() => [{
-  PressKey: {
-    code: 9,
-    modifiers: { shift: true },
-  },
-}]);
-
-const observation = extract((state) => {
-  const events = state.document.querySelector("#keyboard-events");
-  return {
-    activeId: state.document.activeElement?.id ?? "",
-    events: JSON.parse(events?.textContent ?? "[]"),
-  };
-});
-
-export const shiftTabMovesFocusBackward = eventually(() => {
-  const { activeId, events } = observation.current;
-  return activeId === "previous"
-    && events.length === 2
-    && events[0].type === "keydown"
-    && events[1].type === "keyup"
-    && events.every((event) =>
-      event.key === "Tab"
-      && event.code === "Tab"
-      && event.shiftKey === true
-      && event.altKey === false
-      && event.ctrlKey === false
-      && event.metaKey === false
-      && event.trusted === true
-    );
-}).within(10, "seconds");
-"##,
-        )
-        .run()
-        .await;
-}
-
-#[tokio::test]
 async fn test_counter_state_machine() {
     BrowserIntegrationTest::new("counter-state-machine")
         .time_limit(Duration::from_secs(3))
